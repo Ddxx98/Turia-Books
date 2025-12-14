@@ -27,15 +27,31 @@ export default function AttendancePage() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [settings, setSettings] = useState(null);
 
     useEffect(() => {
         const storedToken = localStorage.getItem('token');
         console.log(process.env.NEXT_PUBLIC_BACKEND_URL);
-        if (storedToken) setToken(storedToken);
+        if (storedToken) {
+            setToken(storedToken);
+            fetchSettings(storedToken);
+        }
 
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    const fetchSettings = async (authToken) => {
+        try {
+            const res = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/settings`, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+            setSettings(res.data);
+        } catch (error) {
+            console.error("Error fetching settings", error);
+            handleLogout(); // Redirect to login on error
+        }
+    };
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -79,6 +95,9 @@ export default function AttendancePage() {
         } catch (error) {
             console.error('Punch error:', error.response?.data);
             setMessage(error.response?.data?.message || error.response?.data?.error || `Punch ${type} failed`);
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                handleLogout();
+            }
         } finally {
             setLoading(false);
         }
@@ -172,9 +191,19 @@ export default function AttendancePage() {
                         <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
                             {format(currentTime, 'hh:mm:ss a')}
                         </Typography>
-                        <Typography variant="h6" color="text.secondary">
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
                             {format(currentTime, 'EEEE, MMMM dd, yyyy')}
                         </Typography>
+                        {settings && (
+                            <Paper elevation={0} sx={{ bgcolor: '#e3f2fd', p: 2, mt: 2, borderRadius: 2, display: 'inline-block' }}>
+                                <Typography variant="subtitle1" color="primary" fontWeight="bold">
+                                    Office Hours: {settings.startTime} - {settings.endTime}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Grace Time: {settings.graceTime} mins
+                                </Typography>
+                            </Paper>
+                        )}
                     </Box>
 
                     <Stack spacing={3}>
